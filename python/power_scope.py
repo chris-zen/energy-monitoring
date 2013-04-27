@@ -101,7 +101,7 @@ class PowerScope(object):
 			self.VCAL = 1.00001 * self.VCAL
 		"""
 			
-	def run(self, interval=10, record_path=None):
+	def run(self, interval=10, record_path=None, frames=None):
 		
 		self._size = 600
 		self._freq = self._sampler.get_freq()
@@ -133,11 +133,10 @@ class PowerScope(object):
 										self._animate,
 										init_func=self._init,
 										interval=interval,
-										#frames=40,
+										frames=frames,
 										blit=True)
 
 		if record_path is not None:
-			# record_path = "video.mp4"rm CT	
 			print "Starting to record into {}".format(record_path)
 			anim.save(record_path, codec="avi")
 		
@@ -151,7 +150,7 @@ class PowerScope(object):
 def main():
 	from sampler import Sampler
 
-	s = Sampler("/dev/ttyACM0", debug=True)
+	s = Sampler("/dev/ttyACM0", debug=False)
 	s.set_freq(4000)
 	s.set_trigger(1, 490)
 	s.print_conf()
@@ -161,7 +160,7 @@ def main():
 
 	scope = PowerScope(s)
 
-	#scope.run(record_path="CT_VT.avi")
+	#scope.run(record_path="scope.avi", frames=40)
 	scope.run()
 
 	s.close()
