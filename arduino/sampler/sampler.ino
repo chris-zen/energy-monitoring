@@ -285,7 +285,12 @@ class Sampler {
     
     uint32_t max_time = 0;
     uint32_t elapsed_time;
-      
+    
+    // Change de ADC prescaler to CLK/16
+    bitClear(ADCSRA, ADPS0);
+    bitClear(ADCSRA, ADPS1);
+    bitSet(ADCSRA, ADPS2) ;
+ 
     // Triggering
     
     if (trigger_enabled) {
@@ -411,15 +416,15 @@ Sampler sampler;
 
 char conf_name_buf[CONF_NAME_MAX_SIZE];
 
-char conf_name_size[] PROGMEM = "size";
-char conf_name_freq[] PROGMEM = "freq";
-char conf_name_period[] PROGMEM = "period";
-char conf_name_channels[] PROGMEM = "channels";
-char conf_name_trigger_enabled[] PROGMEM = "trigger_enabled";
-char conf_name_trigger_params[] PROGMEM = "trigger";
-char conf_name_trigger_timeout[] PROGMEM = "trigger_timeout";
+const char conf_name_size[] PROGMEM = "size";
+const char conf_name_freq[] PROGMEM = "freq";
+const char conf_name_period[] PROGMEM = "period";
+const char conf_name_channels[] PROGMEM = "channels";
+const char conf_name_trigger_enabled[] PROGMEM = "trigger_enabled";
+const char conf_name_trigger_params[] PROGMEM = "trigger";
+const char conf_name_trigger_timeout[] PROGMEM = "trigger_timeout";
 
-PGM_P conf_name[] PROGMEM = {
+PGM_P const conf_name[] PROGMEM = {
   conf_name_size,
   conf_name_freq,
   conf_name_period,
