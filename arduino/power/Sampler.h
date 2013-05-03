@@ -3,7 +3,7 @@
 #define DEFAULT_SAMPLING_FREQ 4000
 #define NUM_ANALOG_PORTS 6
 #define DEFAULT_TRIGGER_LEVEL 495
-#define DEFAULT_TRIGGER_TIMEOUT 1000
+#define DEFAULT_TRIGGER_TIMEOUT 1000000
 
 typedef uint16_t sample_t;
 
@@ -11,6 +11,7 @@ class Sampler {
   private:
   
   uint16_t freq;
+  uint32_t period;
   
   uint8_t v_pin;
   uint8_t i_pin;
@@ -20,6 +21,7 @@ class Sampler {
 
   uint32_t start_time;
   uint32_t total_time;
+  uint32_t elapsed_time;
 
   uint16_t last_v_value;
 
@@ -32,8 +34,8 @@ class Sampler {
 
   Sampler() {
     freq = DEFAULT_SAMPLING_FREQ;
-    v_pin = 1;
-    i_pin = 2;
+    v_pin = 2;
+    i_pin = 1;
     trigger_level = DEFAULT_TRIGGER_LEVEL;
     trigger_timeout = DEFAULT_TRIGGER_TIMEOUT;
     start_time = 0;
@@ -42,7 +44,7 @@ class Sampler {
   void set_freq(uint16_t f) {
     if (f == 0)
       f = DEFAULT_SAMPLING_FREQ;
-    uint32_t period = 1000000L / f;
+    period = 1000000L / f;
     freq = 1000000L / period;
   }
 
@@ -53,11 +55,13 @@ class Sampler {
   void set_period(uint32_t period) {
     if (period == 0)
       period = 1000000L / DEFAULT_SAMPLING_FREQ;
+    this->period = period;
     freq = 1000000L / period;
   }
   
   uint32_t get_period() {
-    return 1000000L / freq; // in microseconds
+    //return 1000000L / freq; // in microseconds
+    return period;
   }
 
   void set_pins(uint8_t vpin, uint8_t ipin) {
@@ -82,7 +86,7 @@ class Sampler {
     return trigger_level;
   }
 
-  uint16_t get_trigger_timeout() {
+  uint32_t get_trigger_timeout() {
     return trigger_timeout;
   }
 
@@ -93,6 +97,14 @@ class Sampler {
   uint16_t get_i() {
     return i_value;
   }
+  
+  uint32_t get_start_time() {
+    return start_time;
+  }
+  
+  uint32_t get_elapsed_time() {
+    return elapsed_time;
+  }
 
   void fast_prescaler() {
     // Change de ADC prescaler to CLK/16
@@ -101,7 +113,7 @@ class Sampler {
     bitSet(ADCSRA, ADPS2) ;
   }
 
-  uint32_t read_vcc() {
+  uint16_t read_vcc() {
     #if defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) || defined (__AVR_ATmega328P__)
     ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);  
     #elif defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
@@ -123,7 +135,7 @@ class Sampler {
   }
 
   boolean trigger() {
-    total_time = 0;
+    total_time = elapsed_time = 0;
     v_value = 1024;
     boolean triggered = false;
     start_time = micros();
@@ -133,7 +145,7 @@ class Sampler {
       start_time = micros();
       v_value = analogRead(v_pin);
       i_value = analogRead(i_pin);
-      triggered = (last_v_value <= trigger_level && v_value >= trigger_level);
+      triggered = (last_v_value < trigger_level && v_value >= trigger_level);
     }
 
     return triggered;
@@ -143,15 +155,16 @@ class Sampler {
     last_v_value = v_value;
     
     // Wait until the period time ends
-    total_time += get_period();
-    uint32_t elapsed_time = micros() - start_time;
+    /*total_time += get_period();
+    elapsed_time = micros() - start_time;
     while (elapsed_time < total_time)
-      elapsed_time = micros() - start_time;
+      elapsed_time = micros() - start_time;*/
 
+	//i_value = analogRead(i_pin);
     v_value = analogRead(v_pin);
     i_value = analogRead(i_pin);
 
-    return last_v_value <= trigger_level && v_value >= trigger_level;
+    return last_v_value < trigger_level && v_value >= trigger_level;
   }
 
 };

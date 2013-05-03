@@ -11,9 +11,10 @@ class PowerCalc {
 		float pf;
 
 		float VCAL, VR;
+		float PHCAL;
 		float ICAL, IR;
 
-		uint16_t num_samples;
+		uint32_t num_samples;
 
 		float v_sum;
 		float last_v_filt;
@@ -26,8 +27,9 @@ class PowerCalc {
 		float p_sum;
 
 	public:
-		PowerCalc(float VCAL, float ICAL) {
+		PowerCalc(float VCAL, float PHCAL, float ICAL) {
 			this->VCAL = VCAL;
+			this->PHCAL = PHCAL;
 			this->ICAL = ICAL;
 
 			VR = IR = 0.0f;
@@ -38,9 +40,10 @@ class PowerCalc {
 
 		void reset() {
 			v_rms = i_rms = 0.0f;
-			v_sum = i_sum = 0.0f;
 			p_real = p_app = 0.0f;
 			pf = 0.0f;
+			
+			v_sum = i_sum = p_sum = 0.0f;
 
 			num_samples = 0;
 		};
@@ -63,24 +66,28 @@ class PowerCalc {
 		void compute_sample(uint16_t voltage, uint16_t intensity) {
 			// Voltage High pass filter
 			float v_filt = 0.996 * (last_v_filt + voltage - last_voltage);
-			last_v_filt = v_filt;
-			last_voltage = voltage;
-
+			
 			// Vsum = Sum(v_filt^2)
-			v_sum += v_filt * v_filt;
+			v_sum += (v_filt * v_filt);
 
 			// Intensity High pass filter
 			float i_filt = 0.996 * (last_i_filt + intensity - last_intensity);
-			last_i_filt = i_filt;
-			last_intensity = intensity;
-
+			
 			// Isum = Sum(i_filt^2)
-			i_sum += i_filt * i_filt;
+			i_sum += (i_filt * i_filt);
 
+			float v_shift = last_v_filt + PHCAL * (v_filt - last_v_filt);
+			
 			// Instantaneous Power = V * I
-			p_sum += v_filt * i_filt;
+			p_sum += (v_shift * i_filt);
 
 			num_samples++;
+			
+			last_v_filt = v_filt;
+			last_i_filt = i_filt;
+			
+			last_voltage = voltage;
+			last_intensity = intensity;
 		};
 
 		void compute_total() {
@@ -89,9 +96,10 @@ class PowerCalc {
 			v_rms = VR * sqrt(v_sum * inv_num_samples);
 			i_rms = IR * sqrt(i_sum * inv_num_samples);
 
-			p_real = VR * IR * p_sum * inv_num_samples;
+			p_real = max(0, VR * IR * p_sum * inv_num_samples);
 			p_app = v_rms * i_rms;
-			pf = p_real / p_app;
+			
+			pf = (p_app != 0.0f) ? p_real / p_app : 0.0f;
 		};
 
 		float get_v_rms() {
@@ -112,5 +120,33 @@ class PowerCalc {
 
 		float get_power_factor() {
 			return pf;
+		}
+		
+		uint32_t get_num_samples() {
+			return num_samples;
+		}
+		
+		float get_vcal() {
+			return VCAL;
+		}
+		
+		void set_vcal(float vcal) {
+			VCAL = vcal;
+		}
+		
+		float get_phcal() {
+			return PHCAL;
+		}
+		
+		void set_phcal(float phcal) {
+			PHCAL = phcal;
+		}
+		
+		float get_ical() {
+			return ICAL;
+		}
+		
+		void set_ical(float ical) {
+			ICAL = ical;
 		}
 };

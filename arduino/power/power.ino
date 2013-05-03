@@ -20,15 +20,67 @@ Response response = Response(&Serial);
 
 Sampler sampler;
 
-PowerCalc power = PowerCalc(185, 61.5);
+// power ------------------------------------------------------------
+
+#define DEFAULT_MAX_CICLES 20
+
+uint8_t max_cicles = DEFAULT_MAX_CICLES;
+
+PowerCalc power = PowerCalc(185, -1.0, 61.5);
+
+void calc_power(Sampler& sampler, PowerCalc& power, uint8_t max_cicles, uint32_t max_time) {
+
+  sampler.fast_prescaler();
+  
+  power.reset();
+  
+  uint16_t vcc = sampler.read_vcc();
+  power.set_vcc(vcc);
+  
+  //response.debug("vcc: %u", vcc);
+
+  uint8_t cicles = 0;
+
+  uint32_t elapsed_time = 0;
+  
+  boolean triggered = sampler.trigger();
+  
+  while (cicles < max_cicles && elapsed_time < max_time) {
+
+    power.compute_sample(
+      sampler.get_v(),
+      sampler.get_i());
+
+	elapsed_time = micros() - sampler.get_start_time();
+	
+    triggered = sampler.sample();
+
+    if (triggered) {
+      cicles++;
+    }
+  }
+  
+  power.compute_total();
+  
+  Serial.print("> ");
+  uint16_t f = 1000000L * (uint64_t) power.get_num_samples() / elapsed_time;
+  Serial.print(f);
+  Serial.print(" ");
+  Serial.print(power.get_num_samples());
+  /*Serial.print(" ");
+  Serial.print(elapsed_time);*/
+  Serial.println();
+}
 
 // config -----------------------------------------------------------
 
 #define CONF_FREQ              1
 #define CONF_PERIOD            2
 #define CONF_TRIGGER           3
+#define CONF_CICLES            4
+#define CONF_PHCAL             5
 
-#define CONF_NUM_PARAMS        3
+#define CONF_NUM_PARAMS        5
 
 #define CONF_NAME_MAX_SIZE 16
 
@@ -37,11 +89,15 @@ char conf_name_buf[CONF_NAME_MAX_SIZE];
 const char conf_name_freq[] PROGMEM = "freq";
 const char conf_name_period[] PROGMEM = "period";
 const char conf_name_trigger[] PROGMEM = "trigger";
+const char conf_name_cicles[] PROGMEM = "cicles";
+const char conf_name_phcal[] PROGMEM = "phcal";
 
 PGM_P const conf_name[] PROGMEM = {
   conf_name_freq,
   conf_name_period,
   conf_name_trigger,
+  conf_name_cicles,
+  conf_name_phcal
 };
 
 const char* get_conf_name(byte index) {
@@ -92,6 +148,12 @@ void config_get(byte param) {
     case CONF_TRIGGER:
       response.ok("%u %lu", sampler.get_trigger_level(), sampler.get_trigger_timeout());
     break;
+    case CONF_CICLES:
+      response.ok("%hhu", max_cicles);
+    break;
+    case CONF_PHCAL:
+      response.ok("%d", (int16_t)(power.get_phcal() * 1000.f));
+    break;
   }
 }
 
@@ -121,6 +183,18 @@ void config_set(byte param, char* val) {
         response.ok("%u %lu", sampler.get_trigger_level(), sampler.get_trigger_timeout());
       }
     break;
+    case CONF_CICLES:
+      max_cicles = atol(val);
+      if (max_cicles == 0)
+        max_cicles = 1;
+      else if (max_cicles > 200)
+        max_cicles = 200;
+      response.ok("%hhu", max_cicles);
+    break;
+    case CONF_PHCAL:
+      power.set_phcal(atol(val) / 1000.0f);
+      response.ok("%i", (int16_t)(power.get_phcal() * 1000.f));
+    break;
   }
 }
 
@@ -131,6 +205,8 @@ void config(const char* args) {
     response.println("%s=%u", get_conf_name(CONF_FREQ), sampler.get_freq());
     response.println("%s=%li", get_conf_name(CONF_PERIOD), sampler.get_period());
     response.println("%s=%u,%lu", get_conf_name(CONF_TRIGGER), sampler.get_trigger_level(), sampler.get_trigger_timeout());
+    response.println("%s=%hhu", get_conf_name(CONF_CICLES), max_cicles);
+    response.println("%s=%i", get_conf_name(CONF_PHCAL), (int16_t)(power.get_phcal() * 1000.f));
   }
   else {
     const char* name = args;
@@ -156,30 +232,6 @@ void config(const char* args) {
 
 // -----------------------------------------------------------
 
-void calc_power(Sampler& sampler, PowerCalc& power) {
-
-  power.reset();
-
-  uint8_t max_cicles = 20;
-  uint8_t cicles = 0;
-
-  sampler.trigger();
-  
-  while (cicles < max_cicles) {
-
-    power.compute_sample(
-      sampler.get_v(),
-      sampler.get_i());
-
-    boolean triggered = sampler.sample();
-
-    if (triggered)
-      cicles++;
-  }
-  
-  power.compute_total();
-}
-
 int free_mem() {  
   extern int __heap_start, *__brkval;
   int v;
@@ -195,6 +247,9 @@ void setup() {
   sampler.set_freq(DEFAULT_SAMPLING_FREQ);
   
   //Serial.print('>'); Serial.println(free_mem());
+  
+  // warm up the power calculator
+  calc_power(sampler, power, 20, 400000);
 }
 
 void loop() {
@@ -216,15 +271,27 @@ void loop() {
     break;
     
     case 'P':
-      calc_power(sampler, power);
+      calc_power(sampler, power, max_cicles, (max_cicles + 1) * 20000L);
       response.ok("%d %d %d %d %d",
         (uint16_t) (power.get_v_rms() * 10.0f),
         (uint16_t) (power.get_i_rms() * 10.0f),
         (uint16_t) power.get_real_power(),
         (uint16_t) power.get_apparent_power(),
-        (uint16_t) (power.get_power_factor() * 1000.0f))
+        (uint16_t) (power.get_power_factor() * 1000.0f));
+      Serial.print(power.get_v_rms());
+      Serial.print(" ");
+      Serial.print(power.get_i_rms());
+      Serial.print(" ");
+      Serial.print(power.get_real_power());
+      Serial.print(" ");
+      Serial.print(power.get_apparent_power());
+      Serial.print(" ");
+      Serial.print(power.get_power_factor());
+      Serial.println();
+    break;
+    
     case 'A':
-      response.ok("emonSampler 0.1");
+      response.ok("PowerMonitor 0.1");
     break;
     
     default:
