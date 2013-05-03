@@ -6,6 +6,8 @@
 #include "Response.h"
 #include "Sampler.h"
 
+#include "PowerCalc.h"
+
 // Vcc ----------------------------------------------------------------
 
 uint32_t read_vcc() {
