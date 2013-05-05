@@ -3,9 +3,10 @@ import time
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import animation
-from utils import rtrim, hp
+from signalv import rtrim, hp
 
 class PowerScope(object):
+
 	CHANNEL_COLOR = ["b", "r", "y", "g"] #TODO add more colors
 	
 	def __init__(self, sampler):
@@ -37,9 +38,20 @@ class PowerScope(object):
 		self._line_if.set_data(x, If)
 		
 		return self._label, self._line_v, self._line_i, self._line_vf, self._line_if
+
+	def _update_ratios(self):
+		self.VR = self.VCAL * self.step_vcc
+		self.IR = self.ICAL * self.step_vcc
 	
-	def sample(self):
+	def _update_vcc(self):
 		self._vcc = self._sampler.get_vcc()
+		self.step_vcc = self._vcc / (1000.0 * 1023.0)
+		self._update_ratios()
+		
+	def sample(self):
+
+		self._update_vcc()
+		
 		d = self._sampler.read(sample=True)
 		
 		V = d[1]
@@ -68,21 +80,18 @@ class PowerScope(object):
 		Pi = Vf * If
 		Pisum = Pi.sum()
 
-		R0 = self._vcc / (1000.0 * 1023.0)
+		Vrms = self.VR * np.sqrt(Vsum / Vsq.size)
+		Irms = self.IR * np.sqrt(Isum / Isq.size)
 
-		VR = self.VCAL * R0
-		IR = self.ICAL * R0
-
-		Vrms = VR * np.sqrt(Vsum / Vsq.size)
-		Irms = IR * np.sqrt(Isum / Isq.size)
-
-		Pr = VR * IR * Pisum / Pi.size
+		Pr = self.VR * self.IR * Pisum / Pi.size
 		Pa = Vrms * Irms
-		PF = Pr / Pa
 		
 		Pr = max(0, Pr)
-		Pa = max(0, Pa)
-		PF = max(0, PF)
+		
+		if Pa != 0.0:
+			PF = Pr / Pa
+		else:
+			PF = 0.0
 		
 		return Vt, It, Vf, If, Vrms, Irms, Pr, Pa, PF
 
@@ -115,7 +124,7 @@ class PowerScope(object):
 		self._ax.grid()
 		self._fig.add_axes(self._ax)
 		
-		plt.title("Power PowerScope")
+		plt.title("Power Scope")
 		plt.xlabel("time (ms)")
 		plt.ylabel("value (ADC steps)")
 		
@@ -150,7 +159,7 @@ class PowerScope(object):
 def main():
 	from sampler import Sampler
 
-	s = Sampler("/dev/ttyACM0", debug=False)
+	s = Sampler("/dev/ttyACM0", debug=True)
 	s.set_freq(4000)
 	s.set_trigger(1, 490)
 	s.print_conf()

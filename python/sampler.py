@@ -5,69 +5,13 @@ from time import sleep
 
 from serial import Serial
 
-__ssplitter = re.compile(r'\s+')
-def ssplit(s):
-	return __ssplitter.split(s)
+from response import Response
 
-class Response(object):
-	def __init__(self, line):
-		line = line.rstrip()
-		fields = ssplit(line)
-		self.ok = (len(fields) > 0 and fields[0] == "OK")
-		if self.ok:
-			self.data = fields[1:]
-			self.msg = ""
-		else:
-			self.data = []
-			pos = line.find(" ")
-			if pos >= 0 and pos + 1 < len(line):
-				self.msg = line[pos + 1:]
-			else:
-				self.msg = ""
-	
-	def __repr__(self):
-		if self.ok:
-			sb = ["OK"]
-			sb += self.data
-		else:
-			sb = ["ERROR"]
-			sb += [self.msg]
-		return " ".join(sb)
+from utils import ssplit
 
-class Sampler(object):
-	def __init__(self, dev="/dev/ttyACM0", baud=115200, debug=False):
-		self._s = Serial(dev, baud)
-		self._dev = dev
-		self._baud = baud
-		self._debug = debug
-		sleep(1)
-		self.flush()
-		sleep(1)
+from serialdev import SerialDevice
 
-	def write(self, data):
-		if self._debug:
-			print ":", data
-		self._s.write(data)
-	
-	def readline(self):
-		line = self._s.readline()
-		if self._debug:
-			print ">", line.rstrip()
-		return line
-
-	def read_response(self):
-		r = Response(self.readline())
-		return r
-			
-	def command(self, cmd):
-		self.write(cmd + ";")
-		return self.read_response()
-
-	def print_conf(self):
-		r = self.command("C")
-		if r.ok:
-			for i in xrange(int(r.data[0])):
-				print self._s.readline().rstrip()
+class Sampler(SerialDevice):
 
 	def set_size(self, size):
 		r = self.command("Csize={}".format(size))
@@ -203,21 +147,4 @@ class Sampler(object):
 			return int(r.data[0])
 		else:
 			return None
-			
-	def open(self, dev=None, baud=None):
-		if dev is None and baud is None:
-			self._s.open()
-		else:
-			if dev is None:
-				dev = self._dev
-			if baud is None:
-				baud = self._baud
-			self._s = Serial(dev, baud)
-	
-	def flush(self):
-		 while self._s.inWaiting():
-		 	self._s.read()
-	
-	def close(self):
-		self._s.close()
 

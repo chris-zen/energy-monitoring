@@ -28,7 +28,7 @@ uint8_t max_cicles = DEFAULT_MAX_CICLES;
 
 PowerCalc power = PowerCalc(185, -1.0, 61.5);
 
-void calc_power(Sampler& sampler, PowerCalc& power, uint8_t max_cicles, uint32_t max_time) {
+uint16_t calc_power(Sampler& sampler, PowerCalc& power, uint8_t max_cicles, uint32_t max_time) {
 
   sampler.fast_prescaler();
   
@@ -62,14 +62,9 @@ void calc_power(Sampler& sampler, PowerCalc& power, uint8_t max_cicles, uint32_t
   
   power.compute_total();
   
-  Serial.print("> ");
   uint16_t f = 1000000L * (uint64_t) power.get_num_samples() / elapsed_time;
-  Serial.print(f);
-  Serial.print(" ");
-  Serial.print(power.get_num_samples());
-  /*Serial.print(" ");
-  Serial.print(elapsed_time);*/
-  Serial.println();
+
+  return f;
 }
 
 // config -----------------------------------------------------------
@@ -271,23 +266,27 @@ void loop() {
     break;
     
     case 'P':
-      calc_power(sampler, power, max_cicles, (max_cicles + 1) * 20000L);
-      response.ok("%d %d %d %d %d",
-        (uint16_t) (power.get_v_rms() * 10.0f),
-        (uint16_t) (power.get_i_rms() * 10.0f),
-        (uint16_t) power.get_real_power(),
-        (uint16_t) power.get_apparent_power(),
-        (uint16_t) (power.get_power_factor() * 1000.0f));
-      Serial.print(power.get_v_rms());
-      Serial.print(" ");
-      Serial.print(power.get_i_rms());
-      Serial.print(" ");
-      Serial.print(power.get_real_power());
-      Serial.print(" ");
-      Serial.print(power.get_apparent_power());
-      Serial.print(" ");
-      Serial.print(power.get_power_factor());
-      Serial.println();
+      {
+		  uint16_t freq = calc_power(sampler, power, max_cicles, (max_cicles + 1) * 20000L);
+		  
+		  response.ok("%d %d %d %d %d %u",
+		    (uint16_t) (power.get_v_rms() * 100.0f),
+		    (uint16_t) (power.get_i_rms() * 100.0f),
+		    (uint16_t) power.get_real_power(),
+		    (uint16_t) power.get_apparent_power(),
+		    (uint16_t) (power.get_power_factor() * 10000.0f),
+		    freq);
+		  /*Serial.print(power.get_v_rms());
+		  Serial.print(" ");
+		  Serial.print(power.get_i_rms());
+		  Serial.print(" ");
+		  Serial.print(power.get_real_power());
+		  Serial.print(" ");
+		  Serial.print(power.get_apparent_power());
+		  Serial.print(" ");
+		  Serial.print(power.get_power_factor());
+		  Serial.println();*/
+      }
     break;
     
     case 'A':
