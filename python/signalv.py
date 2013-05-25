@@ -42,9 +42,10 @@ def lp(x, alpha, last=None):
 	"""
 	
 	y = np.empty_like(x)
-	y[0] = x[0] if last is None else last
-	for i in xrange(1, x.size):
-		y[i] = y[i-1] + alpha * (x[i] - y[i-1])
+	if len(x) > 0:
+		y[0] = x[0] if last is None else last
+		for i in xrange(1, x.size):
+			y[i] = y[i-1] + alpha * (x[i] - y[i-1])
 	return y
 
 def hp(x, alpha, last=None):
@@ -53,7 +54,8 @@ def hp(x, alpha, last=None):
 	"""
 	
 	y = np.empty_like(x)
-	y[0] = x[0] if last is None else last
-	for i in xrange(1, x.size):
-		y[i] = alpha * (y[i-1] + x[i] - x[i-1])
+	if len(x) > 0:
+		y[0] = x[0] if last is None else last
+		for i in xrange(1, x.size):
+			y[i] = alpha * (y[i-1] + x[i] - x[i-1])
 	return y
