@@ -6,8 +6,6 @@
 #include "Response.h"
 #include "Sampler.h"
 
-#include "PowerCalc.h"
-
 // Vcc ----------------------------------------------------------------
 
 uint32_t read_vcc() {
@@ -29,6 +27,11 @@ uint32_t read_vcc() {
   uint32_t result = ADCL;
   result |= ADCH << 8;
   result = 1126400L / result;		//1100 mV * 1024 ADC steps http://openenergymonitor.org/emon/node/1186
+  
+  analogReference(INTERNAL);
+  delay(100);
+  analogRead(0);
+  
   return result;
 }
 
@@ -254,6 +257,8 @@ int free_mem() {
 }
 
 void setup() {
+  analogReference(INTERNAL);
+  
   Serial.begin(115200);
 
   while (Serial.available() > 0)

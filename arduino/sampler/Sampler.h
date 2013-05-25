@@ -72,7 +72,7 @@ class Sampler {
     byte* pv = buf;
     
     uint16_t last_value[MAX_SAMPLING_CHANNELS];
-    memset(last_value, 0, sizeof(last_value));
+    memset(last_value, 512, sizeof(last_value));
     
     for (uint16_t i = 0; i < num_samples; i++) {
       for (byte j = 0; j < num_channels; j++) {
@@ -114,7 +114,7 @@ class Sampler {
     uint32_t sampling_period = get_period();
   
     uint16_t last_value[MAX_SAMPLING_CHANNELS];
-    memset(last_value, 0, sizeof(last_value));
+    memset(last_value, 512, sizeof(last_value));
     
     uint16_t value[MAX_SAMPLING_CHANNELS];
     memset(value, 0, sizeof(value));
@@ -129,7 +129,7 @@ class Sampler {
     bitClear(ADCSRA, ADPS0);
     bitClear(ADCSRA, ADPS1);
     bitSet(ADCSRA, ADPS2) ;
- 
+    
     // Triggering
     
     if (trigger_enabled) {
