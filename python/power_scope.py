@@ -13,8 +13,8 @@ class PowerScope(object):
 		self._sampler = sampler
 		self._last_vf = 512.0
 		self._last_if = 512.0
-		self.VCAL = 185
-		self.ICAL = 61.5
+		self.VCAL = 705.1
+		self.ICAL = 71.2
 		
 	def _init(self):
 		self._label.set_text("")
@@ -32,6 +32,9 @@ class PowerScope(object):
 		self.calibrate(Vrms, Irms, Pr, Pa, PF)
 		
 		x = np.arange(0, V.size * self._period_ms, self._period_ms)
+		
+		self._ax.plot(x, [512] * len(x), "g-")
+		
 		self._line_v.set_data(x, V)
 		self._line_i.set_data(x, I)
 		self._line_vf.set_data(x, Vf)
@@ -44,8 +47,9 @@ class PowerScope(object):
 		self.IR = self.ICAL * self.step_vcc
 	
 	def _update_vcc(self):
-		self._vcc = self._sampler.get_vcc()
-		self.step_vcc = self._vcc / (1000.0 * 1023.0)
+		#self._vcc = self._sampler.get_vcc()
+		self._vcc = 1100
+		self.step_vcc = self._vcc / (1000.0 * 1024.0)
 		self._update_ratios()
 		
 	def sample(self):
@@ -56,15 +60,10 @@ class PowerScope(object):
 		
 		V = d[1]
 		I = d[0]
-
-		start = 0
-		end, cicles = rtrim(V)
-		Vt = V[start:end]
-		It = I[start:end]
-
-		#Vf = Vt * 1.0
-		#If = It * 1.0
 		
+		Vt = V[:]
+		It = I[:]
+
 		Vf = hp(Vt * 1.0, 0.996, last=self._last_vf)
 		If = hp(It * 1.0, 0.996, last=self._last_if)
 		
@@ -93,16 +92,24 @@ class PowerScope(object):
 		else:
 			PF = 0.0
 		
-		return Vt, It, Vf, If, Vrms, Irms, Pr, Pa, PF
+		Vtg = Vt * self.step_vcc
+		Itg = It * self.step_vcc
+		
+		Vfg = Vf * self.step_vcc
+		Ifg = If * self.step_vcc
+		
+		return Vtg, Itg, Vfg, Ifg, Vrms, Irms, Pr, Pa, PF
 
 	def calibrate(self, Vrms, Irms, Pr, Pa, PF):
 		pass
+		
 		"""
-		if Pr > 1015:
+		if Pr > 1055:
 			self.ICAL = 0.9999 * self.ICAL
-		elif Irms < 1015:
+		elif Irms < 1055:
 			self.ICAL = 1.0001 * self.ICAL
 		"""
+		
 		"""
 		if Vrms > 240.5:
 			self.VCAL = 0.99999 * self.VCAL
@@ -120,13 +127,15 @@ class PowerScope(object):
 		self._period_ms = self._period / 1000.0
 
 		self._fig = plt.figure(figsize=(11.75, 5.9))
-		self._ax = plt.axes(xlim=(0, self._size * self._period_ms), ylim=(-512, 1023))
+		#self._ax = plt.axes(xlim=(0, self._size * self._period_ms), ylim=(-512, 1023))
+		self._ax = plt.axes(xlim=(0, self._size * self._period_ms), ylim=(-0.55, 1.1))
+		self._ax.set_yticks(np.arange(-0.55, 1.10001, 1.0/20))
 		self._ax.grid()
 		self._fig.add_axes(self._ax)
 		
 		plt.title("Power Scope")
 		plt.xlabel("time (ms)")
-		plt.ylabel("value (ADC steps)")
+		plt.ylabel("ADC volts")
 		
 		self._label = self._ax.text(0.01, 0.96, "",
 									family="monospace", fontname="Courier", weight="bold",
@@ -162,6 +171,7 @@ def main():
 	s = Sampler("/dev/ttyACM0", debug=True)
 	s.set_freq(4000)
 	s.set_trigger(1, 490)
+	#s.set_trigger_enabled(False)
 	s.print_conf()
 
 	vcc = s.get_vcc()
